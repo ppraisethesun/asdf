@@ -3,13 +3,6 @@ defmodule Lexer do
   @number ~r/^[0-9]+/
   @word ~r/^[a-z]+[a-z_0-9]*/
 
-  @op_info %{
-    mul: %{precedence: 2, associativity: :left},
-    div: %{precedence: 2, associativity: :left},
-    add: %{precedence: 1, associativity: :left},
-    sub: %{precedence: 1, associativity: :left}
-  }
-
   def lex(expr) do
     keywords = keywords()
 
@@ -29,16 +22,9 @@ defmodule Lexer do
         ]
 
       kw = keyword?(expr, keywords) ->
-        {kw, str_rep} = kw
+        token = keyword_to_token(kw)
 
-        token =
-          case kw do
-            {:op, op} -> {:op, Map.fetch!(@op_info, op)}
-            {a, b} -> {a, b}
-            a -> a
-          end
-
-        [token | lex(String.replace_leading(expr, str_rep, ""))]
+        [token | lex(String.replace_leading(expr, kw, ""))]
 
       Regex.match?(@word, expr) ->
         name = List.first(Regex.run(@word, expr, [{:capture, :first}]))
@@ -51,47 +37,22 @@ defmodule Lexer do
   end
 
   defp keywords do
-    Enum.into(
-      [
-        {:op, :add},
-        {:op, :mul},
-        {:op, :sub},
-        {:op, :div},
-        :lparen,
-        :rparen,
-        :comma
-      ],
-      %{},
-      &{&1, show_token(&1)}
-    )
+    ~w[^ * / + - ( ) ,]
   end
+
+  defp keyword_to_token("^"), do: {:op, %{op: "^", precedence: 3, associativity: :right}}
+  defp keyword_to_token("*"), do: {:op, %{op: "*", precedence: 2, associativity: :left}}
+  defp keyword_to_token("/"), do: {:op, %{op: "/", precedence: 2, associativity: :left}}
+  defp keyword_to_token("+"), do: {:op, %{op: "+", precedence: 1, associativity: :left}}
+  defp keyword_to_token("-"), do: {:op, %{op: "-", precedence: 1, associativity: :left}}
+
+  defp keyword_to_token("("), do: :lparen
+  defp keyword_to_token(")"), do: :rparen
+  defp keyword_to_token(","), do: :comma
 
   defp keyword?(expr, keywords) do
-    Enum.find(keywords, false, fn {token, str_rep} ->
-      if String.starts_with?(expr, str_rep) do
-        {token, str_rep}
-      end
+    Enum.find(keywords, false, fn kw ->
+      if String.starts_with?(expr, kw), do: kw
     end)
-  end
-
-  def show_token(token) do
-    case token do
-      {:op, _} -> show_op(token)
-      {:num, a} -> to_string(a)
-      {:word, name} -> name
-      :lparen -> "("
-      :rparen -> ")"
-      :comma -> ","
-    end
-  end
-
-  defp show_op({:op, operator}) do
-    case operator do
-      :sub -> "-"
-      :add -> "+"
-      :div -> "/"
-      :mul -> "*"
-      :mod -> "%"
-    end
   end
 end
