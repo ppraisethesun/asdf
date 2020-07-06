@@ -3,15 +3,14 @@ defmodule Lexer do
   @number ~r/^[0-9]+/
   @word ~r/^[a-z]+[a-z_0-9]*/
 
+  def lex(" " <> expr), do: lex(expr)
+
   def lex(expr) do
     keywords = keywords()
 
     cond do
       expr == "" ->
         []
-
-      Regex.match?(@space, expr) ->
-        lex(Regex.replace(@space, expr, "", global: false))
 
       Regex.match?(@number, expr) ->
         num = String.to_integer(List.first(Regex.run(@number, expr, [{:capture, :first}])))
@@ -24,7 +23,7 @@ defmodule Lexer do
       kw = keyword?(expr, keywords) ->
         token = keyword_to_token(kw)
 
-        [token | lex(String.replace_leading(expr, kw, ""))]
+        [token | lex(String.replace_prefix(expr, kw, ""))]
 
       Regex.match?(@word, expr) ->
         name = List.first(Regex.run(@word, expr, [{:capture, :first}]))
